@@ -2,113 +2,74 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"github.com/ycchuang99/ptt-image-crawler/internal/crawler"
+
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/ycchuang99/ptt-image-crawler/internal/crawler"
+)
+
+var (
+	appStyle = lipgloss.NewStyle().Padding(1, 2)
+
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFDF5")).
+			Background(lipgloss.Color("#25A065")).
+			Padding(0, 1)
 )
 
 type model struct {
-	choices []crawler.Board
-	cursor int
-	selected map[int]struct{}
+	list list.Model
 }
 
 func main() {
-	boards, err := crawler.CollectBoardList()
+	m, err := initModel()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error initializing model:", err)
 		return
 	}
-	
-	m := initModel(boards)
-
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
 		fmt.Println("Error running program:", err)
-		os.Exit(1)
 	}
 }
 
-func initModel(choices []crawler.Board) model {
-	return model{
-		choices: choices,
-		cursor:  1,
-		selected: make(map[int]struct{}),
+func initModel() (model, error) {
+	boards, _ := crawler.CollectBoardList()
+
+	items := make([]list.Item, len(boards))
+	for i, b := range boards {
+		items[i] = b
 	}
+
+	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	l.Title = "PTT Boards"
+	l.Styles.Title = titleStyle
+
+	return model{
+		list: l,
+	}, nil
 }
 
 func (m model) Init() tea.Cmd {
-    // Just return `nil`, which means "no I/O right now, please."
-    return nil
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" || msg.String() == "q" {
+			return m, tea.Quit
+		}
+	case tea.WindowSizeMsg:
+		h, v := appStyle.GetFrameSize()
+		m.list.SetSize(msg.Width-h, msg.Height-v)
+	}
 
-    // Is it a key press?
-    case tea.KeyMsg:
-
-        // Cool, what was the actual key pressed?
-        switch msg.String() {
-
-        // These keys should exit the program.
-        case "ctrl+c", "q":
-            return m, tea.Quit
-
-        // The "up" and "k" keys move the cursor up
-        case "up", "k":
-            if m.cursor > 0 {
-                m.cursor--
-            }
-
-        // The "down" and "j" keys move the cursor down
-        case "down", "j":
-            if m.cursor < len(m.choices)-1 {
-                m.cursor++
-            }
-
-        // The "enter" key and the spacebar (a literal space) toggle
-        // the selected state for the item that the cursor is pointing at.
-        case "enter", " ":
-            _, ok := m.selected[m.cursor]
-            if ok {
-                delete(m.selected, m.cursor)
-            } else {
-                m.selected[m.cursor] = struct{}{}
-            }
-        }
-    }
-
-    // Return the updated model to the Bubble Tea runtime for processing.
-    // Note that we're not returning a command.
-    return m, nil
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
 func (m model) View() string {
-	// The header
-	s := "Select PTT Boards to Crawl:\n\n"
-
-	// Iterate over our choices
-	for i, choice := range m.choices {
-
-		// Is the cursor pointing at this choice?
-		cursor := " " // no cursor
-		if m.cursor == i {
-			cursor = ">" // cursor!
-		}
-
-		// Is this choice selected?
-		checked := " " // not selected
-		if _, ok := m.selected[i]; ok {
-			checked = "x" // selected!
-		}
-
-		// Render the row
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice.String())
-	}
-
-    // The footer
-    s += "\nPress q to quit.\n"
-
-    // Send the UI for rendering
-    return s
+	return appStyle.Render(m.list.View())
 }

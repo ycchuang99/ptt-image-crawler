@@ -1,25 +1,23 @@
 package crawler
 
 import (
-	"fmt"
-
 	"github.com/gocolly/colly/v2"
 )
 
-var pptUrl string = "https://www.ptt.cc"
+const pptUrl string = "https://www.ptt.cc"
 
 type Collector interface {
 	CollectBoardList() ([]Board, error)
 }
 
 type Board struct {
-	Name  string
-	Class string
+	name  string
+	class string
 }
 
-func (b Board) String() string {
-	return fmt.Sprintf("%-12s [%s]", b.Name, b.Class)
-}
+func (b Board) Title() string       { return b.name }
+func (b Board) Description() string { return b.class }
+func (b Board) FilterValue() string { return b.name }
 
 func CollectBoardList() ([]Board, error) {
 	boards := []Board{}
@@ -28,8 +26,8 @@ func CollectBoardList() ([]Board, error) {
 
 	c.OnHTML(".b-ent", func(e *colly.HTMLElement) {
 		boards = append(boards, Board{
-			Name:  e.ChildText(".board-name"),
-			Class: e.ChildText(".board-class"),
+			name:  e.ChildText(".board-name"),
+			class: e.ChildText(".board-class"),
 		})
 	})
 
@@ -37,4 +35,3 @@ func CollectBoardList() ([]Board, error) {
 
 	return boards, err
 }
-

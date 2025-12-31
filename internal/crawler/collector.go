@@ -22,7 +22,13 @@ func (b Board) FilterValue() string { return b.name }
 func CollectBoardList() ([]Board, error) {
 	boards := []Board{}
 
-	c := colly.NewCollector()
+	c := colly.NewCollector(
+		colly.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"),
+	)
+
+	c.OnRequest(func(r *colly.Request) {
+		r.Headers.Set("Cookie", "over18=1")
+	})
 
 	c.OnHTML(".b-ent", func(e *colly.HTMLElement) {
 		boards = append(boards, Board{

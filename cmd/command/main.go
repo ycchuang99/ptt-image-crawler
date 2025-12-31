@@ -19,7 +19,8 @@ var (
 )
 
 type model struct {
-	list list.Model
+	list   list.Model
+	choice crawler.Board
 }
 
 func main() {
@@ -28,13 +29,25 @@ func main() {
 		fmt.Println("Error initializing model:", err)
 		return
 	}
-	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
 		fmt.Println("Error running program:", err)
+		return
+	}
+
+	if m, ok := finalModel.(model); ok && m.choice.Title() != "" {
+		fmt.Printf("\nSelected board: %s\n", m.choice.Title())
+		fmt.Printf("Starting crawler for %s...\n", m.choice.Title())
 	}
 }
 
 func initModel() (model, error) {
-	boards, _ := crawler.CollectBoardList()
+	boards, err := crawler.CollectBoardList()
+	if err != nil {
+		return model{}, err
+	}
 
 	items := make([]list.Item, len(boards))
 	for i, b := range boards {
@@ -58,6 +71,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" || msg.String() == "q" {
+			return m, tea.Quit
+		}
+		if msg.String() == "enter" {
+			if i, ok := m.list.SelectedItem().(crawler.Board); ok {
+				m.choice = i
+			}
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
